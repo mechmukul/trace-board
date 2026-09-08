@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>trace-board — visual OSINT handle investigation</title>
+<style>
+  :root{--bg:#0d141d;--panel:#16212e;--panel2:#1d2b3a;--line:#26364a;--text:#e8eef5;--muted:#93a4b8;
+    --accent:#4f9cff;--found:#3ddc97;--warn:#ffb454}
+  *{box-sizing:border-box}
+  body{margin:0;background:linear-gradient(180deg,#0b111a,#0d141d);color:var(--text);
+    font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;padding:24px}
+  h1{margin:0;font-size:22px}
+  .sub{color:var(--muted);font-size:13px;margin:4px 0 12px;max-width:820px}
+  .ethics{background:#241a10;border:1px solid #5a4a2a;color:#ffcf9e;border-radius:10px;padding:9px 12px;font-size:12px;margin-bottom:16px;max-width:820px}
+  .bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
+  input[type=text]{background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:9px;padding:10px 12px;font-size:14px;width:240px}
+  .btn{background:var(--accent);border:none;color:#04101f;font-weight:700;border-radius:9px;padding:10px 15px;cursor:pointer;font-size:14px}
+  label.file{background:var(--panel2);border:1px solid var(--line);color:var(--muted);border-radius:9px;padding:10px 12px;cursor:pointer;font-size:12px}
+  input[type=file]{display:none}
+  .stats{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+  .tile{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 15px;min-width:92px}
+  .tile .n{font-size:22px;font-weight:700}.tile .l{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+  h2{font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin:18px 0 8px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:9px}
+  a.card{display:flex;justify-content:space-between;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);
+    border-radius:10px;padding:10px 12px;text-decoration:none;color:var(--text);transition:.15s}
+  a.card:hover{border-color:var(--accent);background:var(--panel2)}
+  a.card.found{border-color:var(--found);background:rgba(61,220,151,.08)}
+  .card .nm{font-weight:600}
+  .card .go{color:var(--muted);font-size:12px}
+  .card.found .go{color:var(--found);font-weight:700}
+  footer{color:var(--muted);font-size:12px;margin-top:22px;border-top:1px solid var(--line);padding-top:12px;max-width:820px}
+  code{background:#0c1621;border:1px solid var(--line);padding:1px 6px;border-radius:6px;color:#bcd3ee}
+</style>
+</head>
+<body>
+  <h1>trace-board</h1>
+  <div class="sub">A visual OSINT board for investigating a username / handle across platforms. Type a handle and it builds direct profile links grouped by category, so an analyst can pivot quickly. Optionally import a <b>Sherlock</b> results file to light up the accounts that were actually confirmed.</div>
+  <div class="ethics">⚖️ <b>Authorised use only.</b> Use this for investigations you have a legitimate reason to run (your own accounts, threat intel, incident response). Respect privacy and local law. Building profile links is not the same as confirming an account exists — that is what the Sherlock import is for.</div>
+
+  <div class="bar">
+    <input type="text" id="handle" placeholder="username or @handle" value="mechmukul"/>
+    <button class="btn" onclick="render()">Build board</button>
+    <label class="file">Import Sherlock results<input type="file" id="imp" accept=".txt,.csv,.json"></label>
+    <button class="btn" style="background:var(--panel2);color:var(--text);border:1px solid var(--line);font-weight:500" onclick="clearFound()">Clear found</button>
+  </div>
+
+  <div class="stats" id="stats"></div>
+  <div id="board"></div>
+
+  <footer>
+    <b>Using real Sherlock results:</b> run <code>sherlock &lt;username&gt;</code> (see
+    <a href="https://github.com/sherlock-project/sherlock" style="color:var(--accent)">sherlock-project/sherlock</a>),
+    then drag the generated <code>&lt;username&gt;.txt</code> onto "Import Sherlock results" to mark confirmed accounts in green.
+    Curated platform set; not exhaustive. Inspired by Sherlock (MIT). No data leaves your browser.
+  </footer>
+
+<script>
+const PLATFORMS=[
+  ["Social","X / Twitter","https://x.com/{u}"],["Social","Instagram","https://instagram.com/{u}"],
+  ["Social","Facebook","https://facebook.com/{u}"],["Social","TikTok","https://tiktok.com/@{u}"],
+  ["Social","Threads","https://threads.net/@{u}"],["Social","Mastodon","https://mastodon.social/@{u}"],
+  ["Social","Bluesky","https://bsky.app/profile/{u}"],["Social","Telegram","https://t.me/{u}"],
+  ["Social","Reddit","https://reddit.com/user/{u}"],["Social","Pinterest","https://pinterest.com/{u}"],
+  ["Developer","GitHub","https://github.com/{u}"],["Developer","GitLab","https://gitlab.com/{u}"],
+  ["Developer","Stack Overflow","https://stackoverflow.com/users/{u}"],["Developer","Docker Hub","https://hub.docker.com/u/{u}"],
+  ["Developer","npm","https://npmjs.com/~{u}"],["Developer","PyPI","https://pypi.org/user/{u}"],
+  ["Developer","Kaggle","https://kaggle.com/{u}"],["Developer","Dev.to","https://dev.to/{u}"],
+  ["Developer","CodePen","https://codepen.io/{u}"],["Developer","Replit","https://replit.com/@{u}"],
+  ["Professional","LinkedIn","https://linkedin.com/in/{u}"],["Professional","Behance","https://behance.net/{u}"],
+  ["Professional","Dribbble","https://dribbble.com/{u}"],["Professional","Medium","https://medium.com/@{u}"],
+  ["Content","YouTube","https://youtube.com/@{u}"],["Content","Twitch","https://twitch.tv/{u}"],
+  ["Content","SoundCloud","https://soundcloud.com/{u}"],["Content","Vimeo","https://vimeo.com/{u}"],
+  ["Content","Substack","https://{u}.substack.com"],["Content","Patreon","https://patreon.com/{u}"],
+  ["Gaming","Steam","https://steamcommunity.com/id/{u}"],["Gaming","Roblox","https://roblox.com/user.aspx?username={u}"],
+  ["Gaming","Chess.com","https://chess.com/member/{u}"],
+  ["Security / CTF","TryHackMe","https://tryhackme.com/p/{u}"],["Security / CTF","HackerOne","https://hackerone.com/{u}"],
+  ["Security / CTF","Bugcrowd","https://bugcrowd.com/{u}"],["Security / CTF","Root-Me","https://root-me.org/{u}"],
+  ["Security / CTF","Keybase","https://keybase.io/{u}"]
+];
+function host(t){return t.replace(/^https?:\/\//,"").split("/")[0].replace("{u}.","");}
+let found=new Set();
+
+function clean(h){return h.trim().replace(/^@/,"");}
+function render(){
+  const u=clean(document.getElementById("handle").value)||"example";
+  const cats={};
+  PLATFORMS.forEach(([cat,name,tpl])=>{ (cats[cat]=cats[cat]||[]).push([name,tpl.replace("{u}",encodeURIComponent(u)),host(tpl)]); });
+  let html="";
+  for(const cat in cats){
+    html+=`<h2>${cat}</h2><div class="grid">`+cats[cat].map(([name,url,h])=>{
+      const isF=found.has(h);
+      return `<a class="card ${isF?'found':''}" href="${url}" target="_blank" rel="noopener">
+        <span class="nm">${name}</span><span class="go">${isF?'✓ found':'open ↗'}</span></a>`;
+    }).join("")+`</div>`;
+  }
+  document.getElementById("board").innerHTML=html;
+  const cats_n=Object.keys(cats).length;
+  document.getElementById("stats").innerHTML=[
+    ["Platforms",PLATFORMS.length,"var(--text)"],["Categories",cats_n,"var(--text)"],
+    ["Confirmed",found.size,found.size?"var(--found)":"var(--muted)"]
+  ].map(([l,n,c])=>`<div class="tile"><div class="n" style="color:${c}">${n}</div><div class="l">${l}</div></div>`).join("");
+}
+function ingest(text){
+  found=new Set();
+  // Sherlock .txt / csv / json all contain the found profile URLs; match by host.
+  const urls=(text.match(/https?:\/\/[^\s",]+/g)||[]);
+  urls.forEach(url=>{ PLATFORMS.forEach(([,,tpl])=>{ const h=host(tpl); if(url.includes(h)) found.add(h); }); });
+  render();
+}
+document.getElementById("imp").addEventListener("change",e=>{const f=e.target.files[0];if(!f)return;
+  const r=new FileReader();r.onload=()=>ingest(r.result);r.readAsText(f);});
+function clearFound(){found=new Set();render();}
+render();
+</script>
+</body>
+</html>

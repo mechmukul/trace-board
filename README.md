@@ -1,56 +1,53 @@
 # trace-board
 
-> Search a username across the web — confirmed automatically where possible, one click away everywhere else.
-
-**▶ Live demo:** https://mechmukul.github.io/trace-board/ · runs in your browser, no install.
+> Search a username across the web and build a **person dossier** — who they are, their photo, and every confirmed account.
 
 ![trace-board screenshot](docs/screenshot.png)
 
-## What it is
-Type a username and trace-board searches for it across ~36 platforms, shown as a visual board with
-each site's **logo**, grouped by category (Social, Developer, Professional, Content, Gaming,
-Security/CTF). It **auto-confirms** accounts on sites that allow it, gives a **direct link** for the
-rest, and can **import a Sherlock file** to confirm everything.
+trace-board has two modes:
+- **Engine mode (recommended)** — a small backend runs [Sherlock](https://github.com/sherlock-project/sherlock) and checks **every** site *in-app* (accurate found / not-found), then builds a dossier with the person's **avatar + name**. Run it with Docker.
+- **Quick mode** — the hosted static page checks a few API-friendly sites live and links the rest. No install, but limited. Live: https://mechmukul.github.io/trace-board/
 
-## Why it's useful
-Pivoting on a username is a core OSINT / threat-intelligence technique — the same handle often
-reappears across an actor's accounts. trace-board turns that into a fast, visual search: real
-confirmations where the browser can get them, honest "open to check" links where it can't, and a
-clean glass UI anyone can use.
+## Why two modes
+Browsers block cross-site reads (CORS), so a static page *cannot* check most sites — only a handful expose open APIs. A **server** has no such limit, so engine mode uses Sherlock's accurate, per-site detection to check everything. Quick mode is the honest best a browser-only page can do.
 
-## Who it's for / use cases
-- **Threat-intel / SOC analysts** pivoting on an actor's handle during an investigation.
-- **Incident response** — quickly locating where a compromised or impersonating handle appears.
-- **Personal footprint checks** — see where *your own* handle exists and reduce exposure.
-- **Anyone who runs Sherlock** and wants a readable, shareable visual of the results.
+## Run the engine (Docker)
+```bash
+git clone https://github.com/mechmukul/trace-board && cd trace-board
+docker compose up --build
+# open http://localhost:8000
+```
+That's it — the UI shows "engine connected" and searches all sites in-app.
 
-## Try it live (30 seconds)
-1. Open the live demo, type a username, press **Search** (or Enter).
-2. Read the badges:
-   - **✓ found** (green) — confirmed automatically.
-   - **✗ none** (red) — confirmed not present.
-   - **open ↗** (grey) — the site can't be auto-checked from a browser; click the card to look yourself.
-3. Want every site checked automatically? Run Sherlock (below) and click **Import Sherlock file**.
+### Run without Docker
+```bash
+pip install -r backend/requirements.txt
+mkdir -p static && cp index.html static/index.html
+uvicorn backend.app:app --port 8000   # open http://localhost:8000
+```
+
+### Deploy to a server (e.g. Hostinger VPS with Docker)
+```bash
+docker compose up -d --build      # runs on port 8000; put it behind your reverse proxy / domain
+```
 
 ## How it works
-- **Auto-check:** sites with a public, browser-accessible API are checked live — currently **GitHub, GitLab, npm, Chess.com, Mastodon** (200 = found, 404 = none).
-- **Open to check:** most sites block cross-origin requests (**CORS**), so a browser can't confirm them automatically; trace-board gives you the exact profile link to open instead — it never guesses.
-- **Sherlock import:** for full automatic coverage across hundreds of sites, run the free
-  [Sherlock](https://github.com/sherlock-project/sherlock) tool and import its output:
-  ```bash
-  pip install sherlock-project
-  sherlock <username>          # writes <username>.txt with the confirmed profile URLs
-  ```
-  Click **Import Sherlock file**, choose that file, and every matching card turns green.
-- Everything runs client-side; no data leaves your browser.
+- **Backend** (`backend/app.py`, FastAPI): `/api/search?username=` runs Sherlock over a curated set of ~25 sites (`--csv`), parses `Claimed`/`Available`, maps each to a category, and enriches the dossier with the person's GitHub avatar + display name. It also serves the front-end.
+- **Front-end** (`index.html`): calls the engine if present (full in-app results + dossier); otherwise falls back to quick mode automatically.
+- Extend the site list in `SITES` in `backend/app.py` (use exact Sherlock site names).
+
+## Use cases
+- **Threat intel / IR** — pivot on an actor's or impersonator's handle and see every confirmed account with a photo.
+- **Personal footprint** — find where *your* handle exists and reduce exposure.
+- **Investigations** — a fast, visual front-end over Sherlock's proven detection.
 
 ## Responsible use
 For **authorised** investigations only — your own accounts, threat intelligence, or incident
-response — with respect for privacy and local law. An unconfirmed link is a lead, not a fact.
+response — with respect for privacy and local law. A link is a lead, not proof.
 
 ## Tech
-Vanilla HTML/CSS/JS, zero dependencies, static-hostable. Glassmorphism UI, logos via favicon service.
-Inspired by and interoperable with [Sherlock](https://github.com/sherlock-project/sherlock) (MIT).
+FastAPI · Sherlock · httpx · vanilla JS glass UI · Docker. Inspired by and powered by
+[Sherlock](https://github.com/sherlock-project/sherlock) (MIT).
 
 ---
 MIT licensed · Built by **Mukul Mech** · Portfolio: [set-watchtower](https://github.com/mechmukul/set-watchtower) · [set-triage-atlas](https://github.com/mechmukul/set-triage-atlas) · [gvm-triage](https://github.com/mechmukul/gvm-triage)

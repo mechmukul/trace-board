@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>trace-board · visual OSINT handle search</title>
+<title>trace-board · visual OSINT dossier</title>
 <style>
   :root{
-    --bg0:#0a0d14; --glass:rgba(255,255,255,.06); --glass2:rgba(255,255,255,.09);
+    --bg0:#0a0d14; --glass:rgba(255,255,255,.06); --glass2:rgba(255,255,255,.10);
     --stroke:rgba(255,255,255,.14); --text:#f2f5fa; --muted:#9aa7bd;
     --found:#4ade80; --none:#ff6b6b; --accent:#eaeef6;
   }
@@ -14,7 +14,6 @@
   html,body{margin:0;min-height:100%}
   body{background:var(--bg0);color:var(--text);font:15px/1.55 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     padding:30px 22px 60px;position:relative;overflow-x:hidden}
-  /* soft animated glass background */
   body::before{content:"";position:fixed;inset:-20%;z-index:-1;
     background:
       radial-gradient(40% 40% at 20% 20%, rgba(79,156,255,.18), transparent 60%),
@@ -27,24 +26,35 @@
   .glass{background:var(--glass);backdrop-filter:blur(22px) saturate(140%);-webkit-backdrop-filter:blur(22px) saturate(140%);
     border:1px solid var(--stroke);border-radius:22px;box-shadow:0 12px 40px rgba(0,0,0,.35)}
   h1{margin:0;font-size:26px;letter-spacing:-.3px;font-weight:700}
-  .tag{color:var(--muted);margin:4px 0 20px;font-size:14px}
-  /* search */
+  .tag{color:var(--muted);margin:4px 0 16px;font-size:14px}
+  .engine{font-size:12px;color:var(--muted);margin-bottom:14px}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:middle}
+  details{margin-bottom:16px;padding:6px 18px}
+  details summary{cursor:pointer;font-weight:650;padding:10px 0;list-style:none}
+  details summary::-webkit-details-marker{display:none}
+  details summary::before{content:"›";display:inline-block;margin-right:10px;transition:.2s;color:var(--muted)}
+  details[open] summary::before{transform:rotate(90deg)}
+  details ol{margin:6px 0 14px;padding-left:22px}details li{margin:7px 0;color:#dce3ee}
+  .note{color:var(--muted);font-size:13px}
+  code{background:rgba(255,255,255,.08);border:1px solid var(--stroke);padding:1px 7px;border-radius:7px}
   .search{display:flex;gap:10px;align-items:center;padding:10px;margin-bottom:14px}
   .search input{flex:1;background:transparent;border:none;outline:none;color:var(--text);font-size:18px;padding:12px 14px}
   .search input::placeholder{color:var(--muted)}
-  .go{background:var(--accent);color:#0a0d14;border:none;border-radius:14px;padding:12px 22px;font-size:15px;font-weight:700;cursor:pointer;transition:.15s}
+  .go{background:var(--accent);color:#0a0d14;border:none;border-radius:14px;padding:12px 22px;font-size:15px;font-weight:700;cursor:pointer}
   .go:active{transform:scale(.97)}
-  .tools{display:flex;gap:9px;flex-wrap:wrap;align-items:center;margin-bottom:20px}
-  .chip{background:var(--glass);border:1px solid var(--stroke);color:var(--muted);border-radius:999px;padding:8px 14px;font-size:13px;cursor:pointer;transition:.15s;backdrop-filter:blur(12px)}
-  .chip:hover{color:var(--text);border-color:rgba(255,255,255,.3)}
-  input[type=file]{display:none}
-  .legend{display:flex;gap:16px;flex-wrap:wrap;color:var(--muted);font-size:12.5px;margin-left:auto}
-  .legend b{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:middle}
-  /* stats */
-  .stats{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px}
+  .banner{background:rgba(255,180,84,.12);border:1px solid rgba(255,180,84,.4);color:#ffd9a3;border-radius:14px;padding:10px 14px;font-size:13px;margin-bottom:16px;display:none}
+  /* dossier */
+  .dossier{display:none;align-items:center;gap:18px;padding:18px;margin-bottom:18px}
+  .dossier.show{display:flex}
+  .avatar{width:76px;height:76px;border-radius:20px;object-fit:cover;background:rgba(255,255,255,.08);flex:none;
+    display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;color:var(--muted);border:1px solid var(--stroke)}
+  .who .nm{font-size:20px;font-weight:700}
+  .who .un{color:var(--muted);font-size:14px}
+  .who .meta{margin-top:6px;font-size:13px;color:var(--muted)}
+  .who a{color:#bcd3ee}
+  .stats{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px}
   .stat{padding:12px 18px;border-radius:16px;min-width:104px}
   .stat .n{font-size:24px;font-weight:750}.stat .l{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.6px}
-  /* board */
   h2{font-size:12px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin:22px 4px 10px;font-weight:600}
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:11px}
   a.card{display:flex;align-items:center;gap:11px;padding:12px 14px;border-radius:16px;text-decoration:none;color:var(--text);
@@ -53,173 +63,143 @@
   a.card img{width:26px;height:26px;border-radius:7px;background:rgba(255,255,255,.9);padding:2px;flex:none}
   .card .nm{font-weight:600;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .badge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap}
-  .b-found{color:#052e16;background:var(--found)}
-  .b-none{color:#fff;background:rgba(255,107,107,.22);border:1px solid rgba(255,107,107,.5)}
+  .b-found{color:#052e16;background:var(--found)} .b-none{color:#fff;background:rgba(255,107,107,.22);border:1px solid rgba(255,107,107,.5)}
   .b-open{color:var(--muted);background:rgba(255,255,255,.08);border:1px solid var(--stroke)}
-  .b-check{color:var(--muted)}
-  a.card.found{border-color:rgba(74,222,128,.5)}
-  a.card.none{opacity:.5}
+  a.card.found{border-color:rgba(74,222,128,.5)} a.card.none{opacity:.5}
   .spin{width:13px;height:13px;border:2px solid rgba(255,255,255,.25);border-top-color:var(--accent);border-radius:50%;display:inline-block;animation:sp .7s linear infinite}
   @keyframes sp{to{transform:rotate(360deg)}}
-  /* tutorial */
-  details{margin-bottom:20px;padding:6px 18px}
-  details summary{cursor:pointer;font-weight:650;padding:10px 0;list-style:none}
-  details summary::-webkit-details-marker{display:none}
-  details summary::before{content:"›";display:inline-block;margin-right:10px;transition:.2s;color:var(--muted)}
-  details[open] summary::before{transform:rotate(90deg)}
-  details ol{margin:6px 0 14px;padding-left:22px}details li{margin:7px 0;color:#dce3ee}
-  .note{color:var(--muted);font-size:13px}
-  code{background:rgba(255,255,255,.08);border:1px solid var(--stroke);padding:1px 7px;border-radius:7px}
-  a.inline{color:#bcd3ee}
   footer{color:var(--muted);font-size:12.5px;margin-top:26px;text-align:center}
+  a.inline{color:#bcd3ee}
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>trace-board</h1>
-  <div class="tag">Search a username across the web. Confirmed accounts are found automatically where possible; the rest are one click away.</div>
+  <div class="tag">Search a username across the web and build a person dossier — who they are, their photo, and every confirmed account.</div>
+  <div class="engine" id="engine"><span class="dot" style="background:#9aa7bd"></span>checking engine…</div>
 
   <details class="glass">
-    <summary>How to use this (30-second guide)</summary>
+    <summary>How to use this</summary>
     <ol>
-      <li><b>Type a username</b> (e.g. your own handle) and press <b>Search</b>.</li>
-      <li>A <b style="color:var(--found)">green “found”</b> tag means the account was <b>confirmed automatically</b>. A grey <b>“open ↗”</b> means the site can’t be checked from a browser — click the card to look yourself. A red <b>“none”</b> means confirmed not found.</li>
-      <li>Want <b>every</b> site checked automatically? That needs the free <b>Sherlock</b> tool (one command). Run <code>sherlock yourname</code>, then click <b>Import Sherlock file</b> and choose the file it made — matching cards turn green.</li>
+      <li><b>Type a username</b> and press <b>Search</b>.</li>
+      <li>With the <b>engine running</b> (green dot above), every site is checked in-app — confirmed accounts turn <b style="color:var(--found)">green</b>, and a photo + name appear in the dossier at the top.</li>
+      <li>Without the engine (this hosted preview), it falls back to <b>quick mode</b>: a few sites are checked live and the rest are direct links.</li>
     </ol>
-    <div class="note">Why can’t the browser check every site? Websites block other pages from reading them (a rule called CORS). trace-board auto-checks the sites that allow it and gives you a direct link for the rest — that’s the honest limit of any in-browser tool.</div>
+    <div class="note">Run the full engine locally with Docker: <code>docker compose up</code>, then open <code>http://localhost:8000</code>. See the repo README.</div>
   </details>
 
   <div class="search glass">
     <input type="text" id="handle" placeholder="Enter a username…  e.g. mechmukul" value="mechmukul" autocomplete="off"/>
     <button class="go" onclick="run()">Search</button>
   </div>
-  <div class="tools">
-    <label class="chip">📂 Import Sherlock file<input type="file" id="imp" accept=".txt,.csv,.json"></label>
-    <span class="chip" onclick="clearFound()">Clear</span>
-    <span class="legend">
-      <span><b style="background:var(--found)"></b>found</span>
-      <span><b style="background:#ff6b6b"></b>not found</span>
-      <span><b style="background:#9aa7bd"></b>open to check</span>
-    </span>
-  </div>
+  <div class="banner" id="banner"></div>
 
+  <div class="dossier glass" id="dossier"></div>
   <div class="stats" id="stats"></div>
   <div id="board"></div>
 
-  <footer>
-    Authorised OSINT only — investigate handles you have a legitimate reason to. Inspired by
-    <a class="inline" href="https://github.com/sherlock-project/sherlock">Sherlock</a> (MIT). Nothing leaves your browser.
-  </footer>
+  <footer>Authorised OSINT only — investigate handles you have a legitimate reason to. Powered by
+    <a class="inline" href="https://github.com/sherlock-project/sherlock">Sherlock</a> (MIT) when the engine runs.</footer>
 </div>
 
 <script>
-// [category, name, domain, profileURL, checkURL(optional), checkKind]
-// checkKind: "status" (200=found,404=none) | "array" (200 & non-empty=found)
-const P=[
-  ["Social","X / Twitter","x.com","https://x.com/{u}"],
-  ["Social","Instagram","instagram.com","https://instagram.com/{u}"],
-  ["Social","Facebook","facebook.com","https://facebook.com/{u}"],
-  ["Social","TikTok","tiktok.com","https://tiktok.com/@{u}"],
-  ["Social","Threads","threads.net","https://threads.net/@{u}"],
-  ["Social","Mastodon","mastodon.social","https://mastodon.social/@{u}","https://mastodon.social/api/v1/accounts/lookup?acct={u}","status"],
-  ["Social","Bluesky","bsky.app","https://bsky.app/profile/{u}"],
-  ["Social","Telegram","t.me","https://t.me/{u}"],
-  ["Social","Reddit","reddit.com","https://reddit.com/user/{u}"],
-  ["Social","Pinterest","pinterest.com","https://pinterest.com/{u}"],
+const favicon=d=>`https://www.google.com/s2/favicons?domain=${d}&sz=64`;
+const host=u=>{try{return new URL(u).hostname.replace(/^www\./,"");}catch(e){return"";}};
+const clean=h=>h.trim().replace(/^@/,"");
+let engineOnline=false;
+
+async function checkEngine(){
+  try{ const r=await fetch("/api/health",{cache:"no-store"}); engineOnline=r.ok; }catch(e){ engineOnline=false; }
+  const el=document.getElementById("engine");
+  el.innerHTML = engineOnline
+    ? `<span class="dot" style="background:var(--found)"></span>engine connected — full in-app search across all sites`
+    : `<span class="dot" style="background:#9aa7bd"></span>engine offline — quick mode (run the Docker engine for full search + dossier)`;
+}
+
+async function run(){
+  const u=clean(document.getElementById("handle").value); if(!u) return;
+  document.getElementById("banner").style.display="none";
+  document.getElementById("board").innerHTML=`<div style="color:var(--muted);padding:20px"><span class="spin"></span> searching…</div>`;
+  document.getElementById("dossier").className="dossier glass";
+  if(engineOnline){ try{ return await engineSearch(u); }catch(e){ /* fall through */ } }
+  quickSearch(u);
+}
+
+// ---- engine (backend) mode ----
+async function engineSearch(u){
+  const res=await fetch("/api/search?username="+encodeURIComponent(u));
+  if(!res.ok){ const e=await res.json().catch(()=>({})); throw new Error(e.detail||"engine error"); }
+  const d=await res.json();
+  // dossier
+  const initials=(d.displayName||u).slice(0,2).toUpperCase();
+  document.getElementById("dossier").className="dossier glass show";
+  document.getElementById("dossier").innerHTML=`
+    ${d.avatar?`<img class="avatar" src="${d.avatar}" alt=""/>`:`<div class="avatar">${initials}</div>`}
+    <div class="who"><div class="nm">${esc(d.displayName)}</div><div class="un">@${esc(d.username)}</div>
+    <div class="meta">${d.found_count} confirmed of ${d.checked} checked ·
+    <a href="https://www.google.com/search?q=%22${encodeURIComponent(u)}%22" target="_blank" rel="noopener">Google this person ↗</a></div></div>`;
+  // stats
+  const none=d.results.filter(r=>!r.found).length;
+  document.getElementById("stats").innerHTML=[
+    ["Checked",d.checked,"var(--text)"],["Found",d.found_count,"var(--found)"],["Not found",none,"#ff6b6b"]
+  ].map(([l,n,c])=>`<div class="stat glass"><div class="n" style="color:${c}">${n}</div><div class="l">${l}</div></div>`).join("");
+  // board grouped by category (found first)
+  const cats={}; d.results.forEach(r=>{(cats[r.category]=cats[r.category]||[]).push(r);});
+  let html="";
+  for(const cat in cats){
+    const items=cats[cat].sort((a,b)=>b.found-a.found);
+    html+=`<h2>${cat}</h2><div class="grid">`+items.map(r=>`
+      <a class="card ${r.found?'found':'none'}" href="${r.url}" target="_blank" rel="noopener">
+        <img src="${favicon(host(r.url))}" alt="" onerror="this.style.visibility='hidden'"/>
+        <span class="nm">${esc(r.site)}</span>
+        <span class="badge ${r.found?'b-found':'b-none'}">${r.found?'✓ found':'✗ none'}</span></a>`).join("")+`</div>`;
+  }
+  document.getElementById("board").innerHTML=html;
+}
+
+// ---- quick mode (static fallback: client-side, limited) ----
+const QP=[
+  ["Social","X / Twitter","x.com","https://x.com/{u}"],["Social","Instagram","instagram.com","https://instagram.com/{u}"],
+  ["Social","Reddit","reddit.com","https://reddit.com/user/{u}"],["Social","Telegram","t.me","https://t.me/{u}"],
   ["Developer","GitHub","github.com","https://github.com/{u}","https://api.github.com/users/{u}","status"],
   ["Developer","GitLab","gitlab.com","https://gitlab.com/{u}","https://gitlab.com/api/v4/users?username={u}","array"],
   ["Developer","npm","npmjs.com","https://www.npmjs.com/~{u}","https://registry.npmjs.org/-/user/org.couchdb.user:{u}","status"],
-  ["Developer","Stack Overflow","stackoverflow.com","https://stackoverflow.com/users/{u}"],
-  ["Developer","Docker Hub","hub.docker.com","https://hub.docker.com/u/{u}"],
-  ["Developer","PyPI","pypi.org","https://pypi.org/user/{u}"],
-  ["Developer","Kaggle","kaggle.com","https://kaggle.com/{u}"],
-  ["Developer","Dev.to","dev.to","https://dev.to/{u}"],
-  ["Developer","CodePen","codepen.io","https://codepen.io/{u}"],
-  ["Developer","Replit","replit.com","https://replit.com/@{u}"],
-  ["Professional","LinkedIn","linkedin.com","https://linkedin.com/in/{u}"],
-  ["Professional","Behance","behance.net","https://behance.net/{u}"],
-  ["Professional","Dribbble","dribbble.com","https://dribbble.com/{u}"],
-  ["Professional","Medium","medium.com","https://medium.com/@{u}"],
-  ["Content","YouTube","youtube.com","https://youtube.com/@{u}"],
-  ["Content","Twitch","twitch.tv","https://twitch.tv/{u}"],
-  ["Content","SoundCloud","soundcloud.com","https://soundcloud.com/{u}"],
-  ["Content","Substack","substack.com","https://{u}.substack.com"],
-  ["Content","Patreon","patreon.com","https://patreon.com/{u}"],
-  ["Gaming","Steam","steamcommunity.com","https://steamcommunity.com/id/{u}"],
-  ["Gaming","Chess.com","chess.com","https://www.chess.com/member/{u}","https://api.chess.com/pub/player/{u}","status"],
-  ["Gaming","Roblox","roblox.com","https://roblox.com/user.aspx?username={u}"],
-  ["Security / CTF","TryHackMe","tryhackme.com","https://tryhackme.com/p/{u}"],
-  ["Security / CTF","HackerOne","hackerone.com","https://hackerone.com/{u}"],
-  ["Security / CTF","Bugcrowd","bugcrowd.com","https://bugcrowd.com/{u}"],
+  ["Developer","Dev.to","dev.to","https://dev.to/{u}"],["Professional","LinkedIn","linkedin.com","https://linkedin.com/in/{u}"],
+  ["Professional","Medium","medium.com","https://medium.com/@{u}"],["Content","YouTube","youtube.com","https://youtube.com/@{u}"],
+  ["Content","Twitch","twitch.tv","https://twitch.tv/{u}"],["Gaming","Chess.com","chess.com","https://www.chess.com/member/{u}","https://api.chess.com/pub/player/{u}","status"],
+  ["Security / CTF","TryHackMe","tryhackme.com","https://tryhackme.com/p/{u}"],["Security / CTF","HackerOne","hackerone.com","https://hackerone.com/{u}"],
   ["Security / CTF","Keybase","keybase.io","https://keybase.io/{u}"]
 ];
-const favicon=d=>`https://www.google.com/s2/favicons?domain=${d}&sz=64`;
-const clean=h=>h.trim().replace(/^@/,"");
-let forced=new Set(); // hosts confirmed via Sherlock import
-
-function stat(id,txt,cls){const b=document.getElementById(id);if(b){b.className="badge "+cls;b.innerHTML=txt;}}
-function card(i,name,domain,url,initial){
-  return `<a class="card" id="c${i}" href="${url}" target="_blank" rel="noopener">
-    <img src="${favicon(domain)}" alt="" onerror="this.style.visibility='hidden'"/>
-    <span class="nm">${name}</span><span class="badge ${initial.cls}" id="b${i}">${initial.txt}</span></a>`;
-}
-async function check(url,kind){
-  const ctl=new AbortController();const t=setTimeout(()=>ctl.abort(),7000);
-  try{
-    const res=await fetch(url,{signal:ctl.signal,headers:{"Accept":"application/json"}});
-    clearTimeout(t);
-    if(kind==="array"){ if(!res.ok) return res.status===404?"none":"open"; const a=await res.json(); return (Array.isArray(a)&&a.length)?"found":"none"; }
-    if(res.ok) return "found";
-    if(res.status===404) return "none";
-    return "open";
-  }catch(e){ clearTimeout(t); return "open"; } // CORS/network -> can't auto-check
-}
-function refreshStats(){
-  const cards=[...document.querySelectorAll(".badge")];
-  const found=cards.filter(b=>b.classList.contains("b-found")).length;
-  const none=cards.filter(b=>b.classList.contains("b-none")).length;
-  document.getElementById("stats").innerHTML=[
-    ["Platforms",P.length,"var(--text)"],["Found",found,"var(--found)"],
-    ["Not found",none,"#ff6b6b"],["Open to check",P.length-found-none,"var(--muted)"]
-  ].map(([l,n,c])=>`<div class="stat glass"><div class="n" style="color:${c}">${n}</div><div class="l">${l}</div></div>`).join("");
-}
-async function run(){
-  const u=clean(document.getElementById("handle").value)||"example";
-  const cats={};P.forEach((p,i)=>{(cats[p[0]]=cats[p[0]]||[]).push([i,...p]);});
+async function quickSearch(u){
+  document.getElementById("dossier").className="dossier glass show";
+  const initials=u.slice(0,2).toUpperCase();
+  document.getElementById("dossier").innerHTML=`<div class="avatar">${initials}</div>
+    <div class="who"><div class="nm">@${esc(u)}</div><div class="un">quick mode (engine offline)</div>
+    <div class="meta"><a href="https://www.google.com/search?q=%22${encodeURIComponent(u)}%22" target="_blank" rel="noopener">Google this person ↗</a></div></div>`;
+  document.getElementById("banner").style.display="block";
+  document.getElementById("banner").innerHTML="⚡ Quick mode: a few sites are auto-checked, the rest are direct links. Run the Docker engine for full in-app search across all sites + a real photo dossier.";
+  const cats={};QP.forEach((p,i)=>{(cats[p[0]]=cats[p[0]]||[]).push([i,...p]);});
   let html="";
-  for(const cat in cats){
-    html+=`<h2>${cat}</h2><div class="grid">`+cats[cat].map(([i,c,name,domain,tpl,chk])=>{
-      const url=tpl.replace("{u}",encodeURIComponent(u));
-      const initial = chk?{cls:"b-check",txt:'<span class="spin"></span>'}:{cls:"b-open",txt:"open ↗"};
-      return card(i,name,domain,url,initial);
-    }).join("")+`</div>`;
-  }
+  for(const cat in cats){ html+=`<h2>${cat}</h2><div class="grid">`+cats[cat].map(([i,c,name,dom,tpl,chk])=>{
+    const url=tpl.replace("{u}",encodeURIComponent(u));
+    const init=chk?`<span class="spin"></span>`:`<span class="badge b-open">open ↗</span>`;
+    return `<a class="card" id="q${i}" href="${url}" target="_blank" rel="noopener"><img src="${favicon(dom)}" onerror="this.style.visibility='hidden'"/><span class="nm">${name}</span><span id="qb${i}">${init}</span></a>`;
+  }).join("")+`</div>`;}
   document.getElementById("board").innerHTML=html;
-  refreshStats();
-  // run auto-checks
-  P.forEach(async(p,i)=>{
-    const [,,,tpl,chk,kind]=p;
-    if(!chk) return;
-    const r=await check(chk.replace("{u}",encodeURIComponent(u)),kind);
-    const b=document.getElementById("b"+i), c=document.getElementById("c"+i);
-    if(r==="found"){b.className="badge b-found";b.textContent="✓ found";c.classList.add("found");}
-    else if(r==="none"){b.className="badge b-none";b.textContent="✗ none";c.classList.add("none");}
-    else{b.className="badge b-open";b.textContent="open ↗";}
-    refreshStats();
+  document.getElementById("stats").innerHTML="";
+  QP.forEach(async(p,i)=>{const [,,,,tpl,chk,kind]=p; if(!chk)return;
+    try{const r=await fetch(chk.replace("{u}",encodeURIComponent(u)));let f;
+      if(kind==="array"){f=r.ok&&(await r.json()).length>0;}else{f=r.ok;}
+      const b=document.getElementById("qb"+i),card=document.getElementById("q"+i);
+      if(f){b.innerHTML='<span class="badge b-found">✓ found</span>';card.classList.add("found");}
+      else if(r.status===404){b.innerHTML='<span class="badge b-none">✗ none</span>';}
+      else{b.innerHTML='<span class="badge b-open">open ↗</span>';}
+    }catch(e){document.getElementById("qb"+i).innerHTML='<span class="badge b-open">open ↗</span>';}
   });
 }
-// Sherlock import: mark hosts present in the file as found
-document.getElementById("imp").addEventListener("change",e=>{const f=e.target.files[0];if(!f)return;
-  const rd=new FileReader();rd.onload=()=>{
-    const urls=(rd.result.match(/https?:\/\/[^\s",]+/g)||[]);
-    P.forEach((p,i)=>{ const host=p[2]; if(urls.some(x=>x.includes(host))){
-      const b=document.getElementById("b"+i),c=document.getElementById("c"+i);
-      if(b){b.className="badge b-found";b.textContent="✓ found";c.classList.add("found");c.classList.remove("none");} } });
-    refreshStats();
-  };rd.readAsText(f);});
-function clearFound(){run();}
+function esc(s){return (s||"").replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
 document.getElementById("handle").addEventListener("keydown",e=>{if(e.key==="Enter")run();});
-run();
+checkEngine().then(run);
 </script>
 </body>
 </html>

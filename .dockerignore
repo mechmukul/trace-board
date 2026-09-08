@@ -1,5 +1,5 @@
-.DS_Store
+docs/
+.git/
 __pycache__/
 *.pyc
 static/
-.venv/

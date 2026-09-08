@@ -1,0 +1,7 @@
+services:
+  trace-board:
+    build: .
+    image: trace-board:latest
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
